@@ -1,22 +1,21 @@
 package main
 
-import(
+import (
 	"encoding/base64"
 	"encoding/json"
+	"os"
 	"strconv"
 	"time"
-	"os"
 
 	"github.com/Rhymen/go-whatsapp"
-	"github.com/siddontang/go-mysql/client"
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/siddontang/go-mysql/client"
 )
-
 
 var bot, _ = tgbotapi.NewBotAPI("bot token")
 
-func WhatsappToTelegram(cont Context) {
-	telegramIDi, err := strconv.Atoi(cont.UserID)
+func whatsappToTelegram(cont context) {
+	telegramIDi, err := strconv.Atoi(cont.userID)
 	if err != nil {
 		return
 	}
@@ -25,50 +24,49 @@ func WhatsappToTelegram(cont Context) {
 		return
 	}
 	protomessage := base64.StdEncoding.EncodeToString(pmsg)
-	print(string(protomessage)+"\n")
 	var lines string
 	if cont.GroupName != "" {
-		lines = "[💬](https://a.aa/"+cont.RemoteJid+"/"+cont.MessageID+"/"+protomessage+") *Group:* "+cont.GroupName+"\n👤 *Sender:* "+cont.SenderName
-	}else{
-		lines = "[👤](https://a.aa/"+cont.RemoteJid+"/"+cont.MessageID+"/"+protomessage+") *Sender:* "+cont.SenderName+""
+		lines = "[💬](https://a.aa/" + cont.RemoteJid + "/" + cont.MessageID + "/" + protomessage + ") *Group:* " + cont.GroupName + "\n👤 *Sender:* " + cont.SenderName
+	} else {
+		lines = "[👤](https://a.aa/" + cont.RemoteJid + "/" + cont.MessageID + "/" + protomessage + ") *Sender:* " + cont.SenderName + ""
 	}
 	if cont.QuotedMessageText != "" {
-		lines = lines+"\n\n↩️ *Reply to* "+cont.QuotedMessageSender+"\n\""+cont.QuotedMessageText+"\""
+		lines = lines + "\n\n↩️ *Reply to* " + cont.QuotedMessageSender + "\n\"" + cont.QuotedMessageText + "\""
 	}
 	switch cont.MediaType {
-		case "image":
-			pic := tgbotapi.NewPhotoUpload(int64(telegramIDi), "./img"+cont.UserID+".png")
-			pic.Caption = lines+"\n\n"+cont.MediaCaption
-			pic.ParseMode = "Markdown"
-			bot.Send(pic)
-			os.Remove("./img"+cont.UserID+".png")
-		case "video":
-			vid := tgbotapi.NewVideoUpload(int64(telegramIDi), "./vid"+cont.UserID+"-"+cont.FileName+".mp4")
-			vid.Caption = lines+"\n\n"+cont.MediaCaption
-			vid.ParseMode = "Markdown"
-			bot.Send(vid)
-			os.Remove("./vid"+cont.UserID+"-"+cont.FileName+".mp4")
-		case "audio":
-			aud := tgbotapi.NewAudioUpload(int64(telegramIDi), "./aud"+cont.UserID+".mp3")
-			aud.Caption = lines
-			aud.ParseMode = "Markdown"
-			bot.Send(aud)
-			os.Remove("./aud"+cont.UserID+".mp3")
-		case "document":
-			doc := tgbotapi.NewDocumentUpload(int64(telegramIDi), "./doc"+cont.UserID+"-"+cont.FileName)
-			doc.Caption = lines
-			doc.ParseMode = "Markdown"
-			bot.Send(doc)
-			os.Remove("./doc"+cont.UserID+"-"+cont.FileName)
-		default:
-			msg := tgbotapi.NewMessage(int64(telegramIDi), lines+"\n\n"+cont.MessageText)
-			msg.ParseMode = "Markdown"
-			bot.Send(msg)
+	case "image":
+		pic := tgbotapi.NewPhotoUpload(int64(telegramIDi), "./img"+cont.userID+".png")
+		pic.Caption = lines + "\n\n" + cont.MediaCaption
+		pic.ParseMode = "Markdown"
+		bot.Send(pic)
+		os.Remove("./img" + cont.userID + ".png")
+	case "video":
+		vid := tgbotapi.NewVideoUpload(int64(telegramIDi), "./vid"+cont.userID+"-"+cont.FileName+".mp4")
+		vid.Caption = lines + "\n\n" + cont.MediaCaption
+		vid.ParseMode = "Markdown"
+		bot.Send(vid)
+		os.Remove("./vid" + cont.userID + "-" + cont.FileName + ".mp4")
+	case "audio":
+		aud := tgbotapi.NewAudioUpload(int64(telegramIDi), "./aud"+cont.userID+".mp3")
+		aud.Caption = lines
+		aud.ParseMode = "Markdown"
+		bot.Send(aud)
+		os.Remove("./aud" + cont.userID + ".mp3")
+	case "document":
+		doc := tgbotapi.NewDocumentUpload(int64(telegramIDi), "./doc"+cont.userID+"-"+cont.FileName)
+		doc.Caption = lines
+		doc.ParseMode = "Markdown"
+		bot.Send(doc)
+		os.Remove("./doc" + cont.userID + "-" + cont.FileName)
+	default:
+		msg := tgbotapi.NewMessage(int64(telegramIDi), lines+"\n\n"+cont.MessageText)
+		msg.ParseMode = "Markdown"
+		bot.Send(msg)
 	}
 }
 
-func (i Informations) SendAlertToTelegram(message string) {
-	telegramIDi, err := strconv.Atoi(i.UserID)
+func (i informations) sendAlertToTelegram(message string) {
+	telegramIDi, err := strconv.Atoi(i.userID)
 	if err != nil {
 		return
 	}
@@ -77,37 +75,36 @@ func (i Informations) SendAlertToTelegram(message string) {
 	bot.Send(msg)
 }
 
-func (i Informations) SendQr() {
-	telegramIDi, err := strconv.Atoi(i.UserID)
+func (i informations) sendQr() {
+	telegramIDi, err := strconv.Atoi(i.userID)
 	if err != nil {
 		return
 	}
-	pic := tgbotapi.NewPhotoUpload(int64(telegramIDi), "./qr"+i.UserID+".png")
+	pic := tgbotapi.NewPhotoUpload(int64(telegramIDi), "./qr"+i.userID+".png")
 	pic.Caption = "📷 <b>Scan this QR code</b> on your WhatsApp app to login.\n<a href='https://web.whatsapp.com/whatsapp-webclient-login_a0f99e8cbba9eaa747ec23ffb30d63fe.mp4'>Tutorial</a>"
 	pic.ParseMode = "HTML"
 	bot.Send(pic)
-	os.Remove("./qr"+i.UserID+".png")
+	os.Remove("./qr" + i.userID + ".png")
 }
 
+func telegramToWhatsapp(message, toSendJid, messageID, messageProtos string, db *client.Conn, telegramID int) {
 
-func TelegramToWhatsapp(message, toSendJid, messageID, messageProtos string, db *client.Conn, telegramID int) {
-	
-	wac := connections[strconv.Itoa(telegramID)]	
-	i := Informations{strconv.Itoa(telegramID), time.Now().Unix(), db}
-	
+	wac := connections[strconv.Itoa(telegramID)]
+	i := informations{strconv.Itoa(telegramID), time.Now().Unix(), db}
+
 	if wac == nil {
 		return
 	}
-	
+
 	_, err := wac.Send(whatsapp.TextMessage{
 		Info: whatsapp.MessageInfo{
 			RemoteJid: toSendJid,
 		},
 		Text: message,
 	})
-	
+
 	if err != nil {
-		i.SendAlertToTelegram("❌ <b>Error sending message to WhatsApp.</b>\nFull traceback: "+err.Error())
+		i.sendAlertToTelegram("❌ <b>Error sending message to WhatsApp.</b>\nFull traceback: " + err.Error())
 	}
-	
+
 }
