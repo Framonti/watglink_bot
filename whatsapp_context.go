@@ -41,7 +41,7 @@ func getAllContext(info whatsapp.MessageInfo, wacontext whatsapp.ContextInfo, us
 
 	groupMeta, err := wac.GetGroupMetaData(info.RemoteJid)
 	if err != nil {
-		fmt.Println("ERROR! %v", err)
+		fmt.Println("ERROR!", err.Error())
 	}
 	var groupMetaString string
 	groupMetaString = <-groupMeta
