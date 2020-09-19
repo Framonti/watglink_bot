@@ -1,10 +1,23 @@
 # Whatsapp-Telegram Linker Bot
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=MassiveBox_WaTgLink_Bot&metric=alert_status)](https://sonarcloud.io/dashboard?id=MassiveBox_WaTgLink_Bot) [![TravisCI](https://travis-ci.com/MassiveBox/WaTgLink_Bot.svg?branch=master)](https://travis-ci.com/github/MassiveBox/WaTgLink_Bot/builds/) [<img class="badge" tag="github.com/MassiveBox/WaTgLink_Bot" src="https://goreportcard.com/badge/github.com/MassiveBox/WaTgLink_Bot">](https://goreportcard.com/report/github.com/MassiveBox/WaTgLink_Bot) [![DM me badge](https://img.shields.io/badge/contact-@MassiveBox-blue?logo=telegram)](https://t.me/MassiveBox) [![Donate](https://img.shields.io/badge/support-the%20project-yellow?logo=symantec)](https://massivebox.eu.org/?page=4)
+
 This is repository containing the official code for the Telegram bot [@WaTgLink_Bot](https://t.me/WaTgLink_Bot), allowing users to send and receive WhatsApp messages on Telegram.  
 
 Please note that this bot is still in beta stage. It has not been tested with a large amount of users connected at the same time, and it hasn't been tested for concurrency-related problems.  
 
 It's also one of my first complex projects in Go, so feel free to open a issue/pr if you find unoptimized code or any kind of other issue.  
+
+# Legal
+
+Whatsapp-Telegram Linker is neither associated with nor sponsored by WhatsApp Inc., Facebook Inc. or Telegram FZ-LLC. We offer a service based on WhatsApp Web API.   
+Whatsapp-Telegram linker is fully reliant on WhatsApp, and it doesn't represent a financial threat to the above mentioned company because it is not a WhatsApp Business replacement and it does not prevent users from consuming advertising contents offered on any WhatsApp application or WhatsApp Web itself - As there are none. If this condition changes, the service will be shut down.
+
+Every copyrighted name, logo or media used in the code, in other assets of this repository, in promotional media or in the bot itself, is property of it(s) holder(s) and no copyright infringement is intended. 
+
+If you represent WhatsApp Inc., Telegram FZ-LLC or an affiliated company and you have a legal complaint feel free to contact me with the email address massivebox@hi2.in - I will comply with all legitimate requests. Thank you.
+
+Please read the [Privacy Policy](https://telegra.ph/Privacy-Policy---Whatsapp-Telegram-Linker-09-16-2) and the [Usage Conditions](https://telegra.ph/Usage-Conditions---WhatsApp-Telegram-Linker-09-16) before using the service.
 
 # How to run locally
 
