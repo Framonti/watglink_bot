@@ -5,14 +5,10 @@ import (
 	"encoding/json"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/Rhymen/go-whatsapp"
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/siddontang/go-mysql/client"
 )
-
-var bot, _ = tgbotapi.NewBotAPI("bot token")
 
 func whatsappToTelegram(cont context) {
 	telegramIDi, err := strconv.Atoi(cont.userID)
@@ -66,7 +62,7 @@ func whatsappToTelegram(cont context) {
 }
 
 func (i informations) sendAlertToTelegram(message string) {
-	telegramIDi, err := strconv.Atoi(i.userID)
+	telegramIDi, err := strconv.Atoi(i.UserID)
 	if err != nil {
 		return
 	}
@@ -76,23 +72,25 @@ func (i informations) sendAlertToTelegram(message string) {
 }
 
 func (i informations) sendQr() {
-	telegramIDi, err := strconv.Atoi(i.userID)
+	telegramIDi, err := strconv.Atoi(i.UserID)
 	if err != nil {
 		return
 	}
-	pic := tgbotapi.NewPhotoUpload(int64(telegramIDi), "./qr"+i.userID+".png")
-	pic.Caption = "📷 <b>Scan this QR code</b> on your WhatsApp app to login.\n<a href='https://web.whatsapp.com/whatsapp-webclient-login_a0f99e8cbba9eaa747ec23ffb30d63fe.mp4'>Tutorial</a>"
+	pic := tgbotapi.NewPhotoUpload(int64(telegramIDi), "./qr"+i.UserID+".png")
+	pic.Caption = "📷 <b>Scan this QR code</b> on your WhatsApp app to login.\n<a href='https://faq.whatsapp.com/general/download-and-installation/how-to-log-in-or-out'>Tutorial</a>"
 	pic.ParseMode = "HTML"
 	bot.Send(pic)
-	os.Remove("./qr" + i.userID + ".png")
+	os.Remove("./qr" + i.UserID + ".png")
 }
 
-func telegramToWhatsapp(message, toSendJid, messageID, messageProtos string, db *client.Conn, telegramID int) {
+func telegramToWhatsapp(message, toSendJid, messageID, messageProtos string, telegramID int) {
 
 	wac := connections[strconv.Itoa(telegramID)]
-	i := informations{strconv.Itoa(telegramID), time.Now().Unix(), db}
 
 	if wac == nil {
+		msg := tgbotapi.NewMessage(int64(telegramID), "❌ <b>Error sending message to WhatsApp.</b>\nYou're disconnected! Start the session again to send messages.")
+		msg.ParseMode = "HTML"
+		bot.Send(msg)
 		return
 	}
 
@@ -104,7 +102,9 @@ func telegramToWhatsapp(message, toSendJid, messageID, messageProtos string, db 
 	})
 
 	if err != nil {
-		i.sendAlertToTelegram("❌ <b>Error sending message to WhatsApp.</b>\nFull traceback: " + err.Error())
+		msg := tgbotapi.NewMessage(int64(telegramID), "❌ <b>Error sending message to WhatsApp.</b>\nFull traceback: "+err.Error())
+		msg.ParseMode = "HTML"
+		bot.Send(msg)
 	}
 
 }

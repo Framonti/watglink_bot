@@ -14,8 +14,9 @@ import (
 	"time"
 
 	"github.com/Rhymen/go-whatsapp"
-	"github.com/siddontang/go-mysql/client"
 	"github.com/skip2/go-qrcode"
+	"github.com/ziutek/mymysql/autorc"
+	_ "github.com/ziutek/mymysql/thrsafe"
 )
 
 var (
@@ -23,7 +24,7 @@ var (
 	connections = make(map[string]*whatsapp.Conn)
 )
 
-func startConnection(userid string, db *client.Conn) {
+func startConnection(userid string, db *autorc.Conn) {
 
 	desist[userid] = make(chan bool)
 
@@ -45,11 +46,15 @@ func startConnection(userid string, db *client.Conn) {
 		fmt.Fprintf(os.Stderr, "error logging in: %v\n", err)
 		if strings.Contains(err.Error(), "admin login responded with") {
 			if strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "401") {
-				print("Fixing 403...")
-				i.Db.Execute("UPDATE `wtg` SET `session` = '' WHERE `wtg`.`user_id` = ?;", i.userID)
+				i.sendAlertToTelegram("🔧 <b>Recovering from Unauthorized error...</b> We will send you a new QR code to scan shortly, please prepare your smartphone.")
+				i.Db.Query("UPDATE `wtg` SET `session` = '' WHERE `wtg`.`user_id` = %s;", i.UserID)
 				startConnection(userid, db)
 				return
 			}
+		}
+		if err.Error() == "error during login: qr code scan timed out" {
+			i.sendAlertToTelegram("🕔 <b>QR timed out!</b> Please open a new session, and prepare your smartphone before clicking on the Proceed button in order to be able to scan the image in time.")
+			return
 		}
 		i.sendAlertToTelegram("❌ <b>Fatal error logging in:</b> " + err.Error() + "\nMake sure your phone is connected, and if you still get this error, contact @MassiveBox")
 		return
@@ -59,11 +64,15 @@ func startConnection(userid string, db *client.Conn) {
 	connections[userid] = wac
 	var shutgo bool
 
-	r, err := db.Execute("SELECT premium FROM `wtg` WHERE user_id = ?;", userid)
+	rows, _, err := db.Query("SELECT premium FROM `wtg` WHERE user_id = %s;", userid)
 	if err != nil {
-
+		i.sendAlertToTelegram("Error connecting to the database, please try again by opening a new session.")
+		return
 	}
-	premium, _ := r.GetInt(0, 0)
+	var premium int
+	if len(rows) >= 1 {
+		premium = rows[0].Int(0)
+	}
 	if premium == 0 {
 		i.sendAlertToTelegram("⏰ Your session will be terminated in <b>three hours!</b> Please click the \"Pro\" button in the /start menu to know how to remove all time limits for free.")
 		go func() {
@@ -104,7 +113,7 @@ func startConnection(userid string, db *client.Conn) {
 						i.sendAlertToTelegram("❌ <b>Your device has been disconnected for the past 12 hours.</b> Please open a new session.")
 						desist[userid] <- true
 					}
-					if failedReconns%120 == 0 && failedReconns != 0 {
+					if failedReconns%120 == 0 && failedReconns != 0 && failedReconns != 1440 {
 						i.sendAlertToTelegram("⚠️ <b>Your device is still disconnected!</b> You won't be able to receive or send messages.")
 					}
 					time.Sleep(30 * time.Second)
@@ -127,6 +136,7 @@ func startConnection(userid string, db *client.Conn) {
 		session, _ := wac.Disconnect()
 		i.writeSession(session)
 		shutgo = true
+		connections[userid] = nil
 		desist[userid] <- false
 		return
 	}
@@ -134,9 +144,9 @@ func startConnection(userid string, db *client.Conn) {
 }
 
 type informations struct {
-	userID    string
+	UserID    string
 	StartTime int64
-	Db        *client.Conn
+	Db        *autorc.Conn
 }
 
 type waHandler struct {
@@ -155,19 +165,24 @@ func (s *waHandler) HandleError(err error) {
 			err := s.wac.Restore()
 			if err != nil {
 				fmt.Printf("Restore failed: %v", err)
+				if err.Error() == "invalid session" {
+					s.sendAlertToTelegram("❌ <b>Fatal error:</b> Runtime error, session is invalid. Please open a new session, you will be prompted to scan a new QR code.")
+					s.Db.Query("UPDATE `wtg` SET `session` = '' WHERE `wtg`.`user_id` = %s;", s.UserID)
+					desist[s.UserID] <- true
+				}
 			}
 		}
 	} else {
 		log.Printf("error occoured: %v\n", err)
 		if strings.Contains(err.Error(), "when not logged in") {
-			desist[s.userID] <- true
+			desist[s.UserID] <- true
 		}
 	}
 }
 
 func (s *waHandler) HandleTextMessage(message whatsapp.TextMessage) {
 	if int64(message.Info.Timestamp) > s.StartTime && message.Info.FromMe == false {
-		cont := getAllContext(message.Info, message.ContextInfo, s.userID, s.wac)
+		cont := getAllContext(message.Info, message.ContextInfo, s.UserID, s.wac)
 		cont.MessageText = message.Text
 		whatsappToTelegram(cont)
 	}
@@ -175,10 +190,10 @@ func (s *waHandler) HandleTextMessage(message whatsapp.TextMessage) {
 
 func (s *waHandler) HandleImageMessage(message whatsapp.ImageMessage) {
 	if int64(message.Info.Timestamp) > s.StartTime && message.Info.FromMe == false {
-		cont := getAllContext(message.Info, message.ContextInfo, s.userID, s.wac)
+		cont := getAllContext(message.Info, message.ContextInfo, s.UserID, s.wac)
 		media, err := message.Download()
 		if err == nil {
-			ioutil.WriteFile("./img"+s.userID+".png", media, 0644)
+			ioutil.WriteFile("./img"+s.UserID+".png", media, 0644)
 			cont.MediaType = "image"
 			cont.MediaCaption = message.Caption
 			whatsappToTelegram(cont)
@@ -188,10 +203,10 @@ func (s *waHandler) HandleImageMessage(message whatsapp.ImageMessage) {
 
 func (s *waHandler) HandleStickerMessage(message whatsapp.StickerMessage) {
 	if int64(message.Info.Timestamp) > s.StartTime && message.Info.FromMe == false {
-		cont := getAllContext(message.Info, message.ContextInfo, s.userID, s.wac)
+		cont := getAllContext(message.Info, message.ContextInfo, s.UserID, s.wac)
 		media, err := message.Download()
 		if err == nil {
-			ioutil.WriteFile("./img"+s.userID+".png", media, 0644)
+			ioutil.WriteFile("./img"+s.UserID+".png", media, 0644)
 			cont.MediaType = "image"
 			cont.MediaCaption = "_This is a sticker_"
 			whatsappToTelegram(cont)
@@ -201,11 +216,11 @@ func (s *waHandler) HandleStickerMessage(message whatsapp.StickerMessage) {
 
 func (s *waHandler) HandleVideoMessage(message whatsapp.VideoMessage) {
 	if int64(message.Info.Timestamp) > s.StartTime && message.Info.FromMe == false {
-		cont := getAllContext(message.Info, message.ContextInfo, s.userID, s.wac)
+		cont := getAllContext(message.Info, message.ContextInfo, s.UserID, s.wac)
 		media, err := message.Download()
 		if err == nil {
 			random := strconv.Itoa(rand.New(rand.NewSource(time.Now().UnixNano())).Intn(9999))
-			ioutil.WriteFile("./vid"+s.userID+"-"+random+".mp4", media, 0644)
+			ioutil.WriteFile("./vid"+s.UserID+"-"+random+".mp4", media, 0644)
 			cont.FileName = random
 			cont.MediaType = "video"
 			cont.MediaCaption = message.Caption
@@ -216,10 +231,10 @@ func (s *waHandler) HandleVideoMessage(message whatsapp.VideoMessage) {
 
 func (s *waHandler) HandleAudioMessage(message whatsapp.AudioMessage) {
 	if int64(message.Info.Timestamp) > s.StartTime && message.Info.FromMe == false {
-		cont := getAllContext(message.Info, message.ContextInfo, s.userID, s.wac)
+		cont := getAllContext(message.Info, message.ContextInfo, s.UserID, s.wac)
 		media, err := message.Download()
 		if err == nil {
-			ioutil.WriteFile("./aud"+s.userID+".mp3", media, 0644)
+			ioutil.WriteFile("./aud"+s.UserID+".mp3", media, 0644)
 			cont.MediaType = "audio"
 			whatsappToTelegram(cont)
 		}
@@ -228,10 +243,10 @@ func (s *waHandler) HandleAudioMessage(message whatsapp.AudioMessage) {
 
 func (s *waHandler) HandleDocumentMessage(message whatsapp.DocumentMessage) {
 	if int64(message.Info.Timestamp) > s.StartTime && message.Info.FromMe == false {
-		cont := getAllContext(message.Info, message.ContextInfo, s.userID, s.wac)
+		cont := getAllContext(message.Info, message.ContextInfo, s.UserID, s.wac)
 		media, err := message.Download()
 		if err == nil {
-			ioutil.WriteFile("./doc"+s.userID+"-"+message.FileName, media, 0644)
+			ioutil.WriteFile("./doc"+s.UserID+"-"+message.FileName, media, 0644)
 			cont.FileName = message.FileName
 			cont.MediaType = "document"
 			whatsappToTelegram(cont)
@@ -253,7 +268,7 @@ func (i informations) login(wac *whatsapp.Conn) error {
 		qr := make(chan string)
 		go func() {
 			qrData := <-qr
-			qrcode.WriteFile(qrData, qrcode.Medium, 256, "qr"+i.userID+".png")
+			qrcode.WriteFile(qrData, qrcode.Medium, 256, "qr"+i.UserID+".png")
 			i.sendQr()
 		}()
 		session, err = wac.Login(qr)
@@ -271,11 +286,14 @@ func (i informations) login(wac *whatsapp.Conn) error {
 }
 
 func (i informations) readSession() (whatsapp.Session, error) {
-	r, err := i.Db.Execute("SELECT session FROM `wtg` WHERE `user_id` = ?;", i.userID)
+	r, _, err := i.Db.Query("SELECT session FROM `wtg` WHERE `user_id` = %s;", i.UserID)
 	if err != nil {
 		return whatsapp.Session{}, err
 	}
-	marshald, _ := r.GetString(0, 0)
+	var marshald string
+	if len(r) >= 1 {
+		marshald = r[0].Str(0)
+	}
 	var session whatsapp.Session
 	err = json.Unmarshal([]byte(marshald), &session)
 	if err != nil {
@@ -289,6 +307,6 @@ func (i informations) writeSession(session whatsapp.Session) error {
 	if err != nil {
 		return err
 	}
-	_, err = i.Db.Execute("UPDATE `wtg` SET `session` = ? WHERE `wtg`.`user_id` = ?;", marshald, i.userID)
+	_, _, err = i.Db.Query("UPDATE `wtg` SET `session` = '"+string(marshald)+"' WHERE `wtg`.`user_id` = %s;", i.UserID)
 	return err
 }

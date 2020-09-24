@@ -2,23 +2,28 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/gofiber/fiber"
-	"github.com/siddontang/go-mysql/client"
+	"github.com/gofiber/fiber/v2"
+	"github.com/ziutek/mymysql/autorc"
+	_ "github.com/ziutek/mymysql/thrsafe"
 )
+
+var bot, _ = tgbotapi.NewBotAPI("bot token")
 
 func main() {
 
 	app := fiber.New()
 
-	db, _ := client.Connect("localhost:3306", "username", "password", "dbname")
-	db.Ping()
+	db := autorc.New("tcp", "", "localhost:3306", "username", "password", "dbname")
+	db.Register("set names utf8")
 
 	var startKeyb = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -35,7 +40,7 @@ func main() {
 	)
 	const startMsg = "💻 <b>Welcome to Whatsapp-Telegram Linker.</b>\n\nWith this bot, you can connect Telegram and Whatsapp to receive WhatsApp messages on Telegram, and you can respond to WhatsApp messages directly via Telegram.\n\n🤖 <b>Proudly developed by @MassiveBox</b> - <a href='https://massivebox.eu.org/?page=4'>Donate</a>\n⚠️ The bot is still in beta! If you find something not working, have patience and report it."
 
-	app.Post("/rp/12", func(c *fiber.Ctx) {
+	app.Post("/rp/12", func(c *fiber.Ctx) error {
 
 		var update tgbotapi.Update
 		json.Unmarshal([]byte(c.Body()), &update)
@@ -43,24 +48,32 @@ func main() {
 		if update.Message != nil {
 
 			if update.Message.Chat.ID < 0 {
-				return
+				return nil
 			}
 
 			if update.Message.Text == "/start" {
 
-				user, err := db.Execute("SELECT id,username FROM `bots`.`wtg` WHERE user_id = ?;", update.Message.Chat.ID)
+				user, _, err := db.Query("SELECT id,username FROM `bots`.`wtg` WHERE user_id = %d;", update.Message.Chat.ID)
 				if err != nil {
-					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Internal error establishing a connection to the database. Please try again"))
-					return
+					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Internal error establishing a connection to the database. Please try again\nTraceback: "+err.Error()))
+					return nil
 				}
-				id, _ := user.GetInt(0, 0)
+				var (
+					username string
+					id       int
+				)
+				if len(user) >= 1 {
+					if len(user[0]) == 2 {
+						id = user[0].Int(0)
+						username = user[0].Str(1)
+					}
+				}
 				if id == 0 {
-					db.Execute("INSERT INTO `wtg` (`id`, `username`, `user_id`, `autoreply`, `premium`, `session`) VALUES (NULL, ?, ?, '', '0', '');", update.Message.From.UserName, update.Message.Chat.ID)
+					db.Query("INSERT INTO `wtg` (`id`, `username`, `user_id`, `autoreply`, `premium`, `session`) VALUES (NULL, %s, '%d', '', '0', '');", update.Message.From.UserName, update.Message.Chat.ID)
 				}
-				username, _ := user.GetString(0, 1)
 				if username == "ban" {
 					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "You're banned from the bot."))
-					return
+					return nil
 				}
 
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, startMsg)
@@ -78,7 +91,7 @@ func main() {
 					msg.ReplyToMessageID = update.Message.MessageID
 					msg.ParseMode = "HTML"
 					bot.Send(msg)
-					return
+					return nil
 				}
 
 				var entities []tgbotapi.MessageEntity
@@ -88,20 +101,40 @@ func main() {
 				if update.Message.ReplyToMessage.CaptionEntities != nil {
 					entities = update.Message.ReplyToMessage.CaptionEntities
 				}
-				log.Println(entities)
+
 				if entities != nil {
 					url := entities[0].URL
 					matchs := regexp.MustCompile(`(?m)https://a.aa/(.*)/(.*)/(.*)`).FindStringSubmatch(url)
-					log.Println(matchs, url)
 					if len(matchs) == 4 {
-						print("yaah\n")
-						telegramToWhatsapp(update.Message.Text, matchs[1], matchs[2], matchs[3], db, update.Message.From.ID)
+						telegramToWhatsapp(update.Message.Text, matchs[1], matchs[2], matchs[3], update.Message.From.ID)
+					} else {
+						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "🧐 <b>This doesn't look like a WhatsApp message...</b>")
+						msg.ReplyToMessageID = update.Message.MessageID
+						msg.ParseMode = "HTML"
+						bot.Send(msg)
+						return nil
 					}
 				}
 
 			}
 
-			if update.Message.ReplyToMessage == nil && update.Message.Text != "/start" {
+			if strings.Contains(update.Message.Text, "/post ") && update.Message.From.ID == 1334403986 {
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Starting to send post..."))
+				postTxt := strings.Replace(update.Message.Text, "/post ", "", 1)
+				rows, _, _ := db.Query("SELECT user_id FROM `wtg`")
+				for key, row := range rows {
+					userID := row.Int(0)
+					msg := tgbotapi.NewMessage(int64(userID), postTxt)
+					msg.ParseMode = "HTML"
+					bot.Send(msg)
+					if key%10 == 0 && key > 0 {
+						time.Sleep(5 * time.Second)
+					}
+				}
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Post sent."))
+			}
+
+			if update.Message.ReplyToMessage == nil && update.Message.Text != "/start" && strings.Contains(update.Message.Text, "/post ") == false {
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "↪️ You must <b>reply to a message</b> in order to send a text to WhatsApp.")
 				msg.ReplyToMessageID = update.Message.MessageID
 				msg.ParseMode = "HTML"
@@ -113,6 +146,7 @@ func main() {
 		if update.CallbackQuery != nil {
 
 			if update.CallbackQuery.Data == "/start" {
+				go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
 				msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, startMsg)
 				msg.ReplyMarkup = &startKeyb
 				msg.ParseMode = "HTML"
@@ -120,18 +154,128 @@ func main() {
 			}
 
 			if update.CallbackQuery.Data == "/pro" {
-				var startKeyb = tgbotapi.NewInlineKeyboardMarkup(
-					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "/start"),
-					),
-				)
-				msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "🔰 With the <b>Pro function</b> you will be able to extend the lenght of your sessions and get other features for free.\n\nDuring the beta test phase, the Pro option is not active.\nStar our GitHub repo to keep yourself updated.")
-				msg.ReplyMarkup = &startKeyb
-				msg.ParseMode = "HTML"
-				bot.Send(msg)
+
+				resp, err := http.Get("https://api.botsarchive.com/getBotID.php?username=@WaTgLink_Bot")
+				if err != nil {
+					return nil
+				}
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					return nil
+				}
+
+				type botsarchiveData struct {
+					Ok      int    `json:"ok"`
+					ID      int    `json:"id"`
+					Message string `json:"message"`
+					Result  struct {
+						Msg string `json:"msg"`
+					} `json:"result"`
+				}
+
+				var botdata botsarchiveData
+				json.Unmarshal(body, &botdata)
+
+				if botdata.Ok == 0 || botdata.ID == 0 {
+
+					go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
+					var keyb = tgbotapi.NewInlineKeyboardMarkup(
+						tgbotapi.NewInlineKeyboardRow(
+							tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "/start"),
+						),
+					)
+					msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "🔰 With the <b>Pro function</b> you will be able to extend the lenght of your sessions and get other features for free.\n\nDuring the beta test phase, the Pro option is not active.\nStar our GitHub repo to keep yourself updated.")
+					msg.ReplyMarkup = &keyb
+					msg.ParseMode = "HTML"
+					bot.Send(msg)
+
+				} else {
+
+					go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
+					rows, _, err := db.Query("SELECT premium FROM `wtg` WHERE user_id = %d;", update.CallbackQuery.Message.Chat.ID)
+					if err != nil {
+						return nil
+					}
+
+					var premium int
+					if len(rows) >= 1 {
+						premium = rows[0].Int(0)
+					}
+
+					if premium == 1 {
+						bot.Send(tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "You're already pro!"))
+						return nil
+					}
+					go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
+
+					var keyb = tgbotapi.NewInlineKeyboardMarkup(
+						tgbotapi.NewInlineKeyboardRow(
+							tgbotapi.NewInlineKeyboardButtonURL("⭐️ Rate ⭐️", botdata.Result.Msg),
+						),
+						tgbotapi.NewInlineKeyboardRow(
+							tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "/start"),
+							tgbotapi.NewInlineKeyboardButtonData("✅ Check", "/check_pro "+strconv.Itoa(botdata.ID)),
+						),
+					)
+					msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "😳 <b>Rate us 5 stars on BotsArchive to unlock Pro features!</b>\n\nClick on the link below, join the channel, click on the five stars button, then Confirm to unlock Pro.\n"+botdata.Result.Msg)
+					msg.ReplyMarkup = &keyb
+					msg.ParseMode = "HTML"
+					bot.Send(msg)
+
+				}
+
+			}
+
+			if strings.Contains(update.CallbackQuery.Data, "/check_pro ") {
+
+				botid := strings.ReplaceAll(update.CallbackQuery.Data, "/check_pro ", "")
+
+				resp, err := http.Get("https://api.botsarchive.com/getUserVote.php?bot_id=" + botid + "&user_id=" + strconv.Itoa(update.CallbackQuery.From.ID))
+				if err != nil {
+					return nil
+				}
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					return nil
+				}
+
+				type voteData struct {
+					Ok     int    `json:"ok"`
+					Result string `json:"result"`
+				}
+
+				var vote voteData
+				json.Unmarshal(body, &vote)
+
+				if vote.Result == "" {
+					if vote.Ok == 1 {
+						bot.Send(tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "You haven't voted!"))
+					} else {
+						bot.Send(tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Internal error, please try again."))
+					}
+				} else {
+					if vote.Result == "5" {
+						go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
+						var keyb = tgbotapi.NewInlineKeyboardMarkup(
+							tgbotapi.NewInlineKeyboardRow(
+								tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "/start"),
+							),
+						)
+						msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "🥳 <b>Thanks!</b> Pro is now enabled.\nIf you change your rating, it will get revoked.")
+						msg.ReplyMarkup = &keyb
+						msg.ParseMode = "HTML"
+						bot.Send(msg)
+						db.Query("UPDATE `wtg` SET `premium` = '1' WHERE `wtg`.`user_id` = %d;", update.CallbackQuery.Message.Chat.ID)
+					} else {
+						bot.Send(tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Select five stars."))
+					}
+				}
+
 			}
 
 			if update.CallbackQuery.Data == "/session" || update.CallbackQuery.Data == "/session_r" {
+
+				go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
 
 				var startKeyb = tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
@@ -161,13 +305,13 @@ func main() {
 					bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, "Loading..."))
 					wac := connections[idstring]
 					if wac == nil {
-						sessiondesc = "💔 <b>Disconnected</b> - You're logged in, but your session is inactive."
+						sessiondesc = "⏸ <b>Paused</b> - You're logged in, but your session is inactive."
 					} else {
 						pong, err := wac.AdminTest()
 						if pong && err == nil {
 							sessiondesc = "✅ <b>Connected</b> - Your session is active."
 						} else {
-							sessiondesc = "💔 <b>Disconnected</b> - You're logged in, but your session is inactive."
+							sessiondesc = "💔 <b>Disconnected</b> - You're logged in, but your session is inactive because your phone isn't connected."
 						}
 					}
 				}
@@ -194,12 +338,7 @@ func main() {
 					if wac == nil {
 						status = "inactive"
 					} else {
-						pong, err := wac.AdminTest()
-						if pong && err == nil {
-							status = "active"
-						} else {
-							status = "inactive"
-						}
+						status = "active"
 					}
 				}
 
@@ -208,6 +347,7 @@ func main() {
 					case "active":
 						bot.Send(tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Session is already active!"))
 					case "noauth":
+						go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
 						var keyb = tgbotapi.NewInlineKeyboardMarkup(
 							tgbotapi.NewInlineKeyboardRow(
 								tgbotapi.NewInlineKeyboardButtonData("✅ Proceed", "/controller start-ok"),
@@ -232,6 +372,7 @@ func main() {
 				if action == "pause" {
 					switch status {
 					case "active":
+						go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
 						var keyb = tgbotapi.NewInlineKeyboardMarkup(
 							tgbotapi.NewInlineKeyboardRow(
 								tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "/session"),
@@ -241,9 +382,7 @@ func main() {
 						msg.ReplyMarkup = &keyb
 						msg.ParseMode = "HTML"
 						bot.Send(msg)
-						log.Println("Sendo true")
 						desist[strconv.Itoa(update.CallbackQuery.From.ID)] <- true
-						log.Println("Fatto")
 					default:
 						bot.Send(tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Session is not active!"))
 					}
@@ -256,6 +395,7 @@ func main() {
 					case "noauth":
 						bot.Send(tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "No session to delete."))
 					case "inactive":
+						go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
 						var keyb = tgbotapi.NewInlineKeyboardMarkup(
 							tgbotapi.NewInlineKeyboardRow(
 								tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "/session"),
@@ -265,7 +405,7 @@ func main() {
 						msg.ReplyMarkup = &keyb
 						msg.ParseMode = "HTML"
 						bot.Send(msg)
-						db.Execute("UPDATE `wtg` SET `session` = '' WHERE `wtg`.`user_id` = ?;", update.CallbackQuery.Message.Chat.ID)
+						db.Query("UPDATE `wtg` SET `session` = '' WHERE `wtg`.`user_id` = %d;", update.CallbackQuery.Message.Chat.ID)
 					}
 				}
 
@@ -273,8 +413,16 @@ func main() {
 
 		}
 
+		return nil
+
 	})
 
-	log.Fatal(app.Listen(12))
+	app.Get("/rp/12/ping", func(c *fiber.Ctx) error {
+		// This is just a dummy route for making your uptime monitor's life  a little better.
+		c.SendString("Hello!")
+		return nil
+	})
+
+	log.Fatal(app.Listen(":12"))
 
 }
