@@ -38,6 +38,11 @@ func main() {
 			tgbotapi.NewInlineKeyboardButtonURL("🌡 Usage Conditions", "https://telegra.ph/Usage-Conditions---WhatsApp-Telegram-Linker-09-16"),
 		),
 	)
+	var backKeyb = tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "/start"),
+		),
+	)
 	const startMsg = "💻 <b>Welcome to Whatsapp-Telegram Linker.</b>\n\nWith this bot, you can connect Telegram and Whatsapp to receive WhatsApp messages on Telegram, and you can respond to WhatsApp messages directly via Telegram.\n\n🤖 <b>Proudly developed by @MassiveBox</b> - <a href='https://massivebox.eu.org/?page=4'>Donate</a>\n⚠️ The bot is still in beta! If you find something not working, have patience and report it."
 
 	app.Post("/rp/12", func(c *fiber.Ctx) error {
@@ -179,13 +184,8 @@ func main() {
 				if botdata.Ok == 0 || botdata.ID == 0 {
 
 					go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
-					var keyb = tgbotapi.NewInlineKeyboardMarkup(
-						tgbotapi.NewInlineKeyboardRow(
-							tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "/start"),
-						),
-					)
 					msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "🔰 With the <b>Pro function</b> you will be able to extend the lenght of your sessions and get other features for free.\n\nDuring the beta test phase, the Pro option is not active.\nStar our GitHub repo to keep yourself updated.")
-					msg.ReplyMarkup = &keyb
+					msg.ReplyMarkup = &backKeyb
 					msg.ParseMode = "HTML"
 					bot.Send(msg)
 
@@ -256,13 +256,8 @@ func main() {
 				} else {
 					if vote.Result == "5" {
 						go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
-						var keyb = tgbotapi.NewInlineKeyboardMarkup(
-							tgbotapi.NewInlineKeyboardRow(
-								tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "/start"),
-							),
-						)
 						msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "🥳 <b>Thanks!</b> Pro is now enabled.\nIf you change your rating, it will get revoked.")
-						msg.ReplyMarkup = &keyb
+						msg.ReplyMarkup = &backKeyb
 						msg.ParseMode = "HTML"
 						bot.Send(msg)
 						db.Query("UPDATE `wtg` SET `premium` = '1' WHERE `wtg`.`user_id` = %d;", update.CallbackQuery.Message.Chat.ID)
@@ -275,9 +270,7 @@ func main() {
 
 			if update.CallbackQuery.Data == "/session" || update.CallbackQuery.Data == "/session_r" {
 
-				go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
-
-				var startKeyb = tgbotapi.NewInlineKeyboardMarkup(
+				var keyb = tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
 						tgbotapi.NewInlineKeyboardButtonData("▶️ Start", "/controller start"),
 					),
@@ -317,7 +310,7 @@ func main() {
 				}
 
 				msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "🎛 Session is: "+sessiondesc)
-				msg.ReplyMarkup = &startKeyb
+				msg.ReplyMarkup = &keyb
 				msg.ParseMode = "HTML"
 				bot.Send(msg)
 
@@ -372,16 +365,16 @@ func main() {
 				if action == "pause" {
 					switch status {
 					case "active":
-						go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
 						var keyb = tgbotapi.NewInlineKeyboardMarkup(
 							tgbotapi.NewInlineKeyboardRow(
 								tgbotapi.NewInlineKeyboardButtonData("🔙 Back", "/session"),
 							),
 						)
 						msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "⏸ <b>Session paused.</b> You can restart it in the Session menu.")
-						msg.ReplyMarkup = &keyb
 						msg.ParseMode = "HTML"
+						msg.ReplyMarkup = &keyb
 						bot.Send(msg)
+						go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
 						desist[strconv.Itoa(update.CallbackQuery.From.ID)] <- true
 					default:
 						bot.Send(tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Session is not active!"))
