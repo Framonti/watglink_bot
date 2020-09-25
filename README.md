@@ -10,29 +10,24 @@ It's also one of my first complex projects in Go, so feel free to open a issue/p
 
 # Legal
 
-Whatsapp-Telegram Linker is neither associated with nor sponsored by WhatsApp Inc., Facebook Inc. or Telegram FZ-LLC. We offer a service based on WhatsApp Web API.   
-Whatsapp-Telegram linker is fully reliant on WhatsApp, and it doesn't represent a financial threat to the above mentioned company because it is not a WhatsApp Business replacement and it does not prevent users from consuming advertising contents offered on any WhatsApp application or WhatsApp Web itself - As there are none. If this condition changes, the service will be shut down.
+Whatsapp-Telegram Linker is neither associated with nor sponsored by WhatsApp Inc., Facebook Inc. or Telegram FZ-LLC. We offer a service based on WhatsApp Web API and Telegram Bot API.   
+Whatsapp-Telegram linker is fully reliant on WhatsApp, and it doesn't represent a financial threat to it because it is not a WhatsApp Business replacement and it does not prevent users from consuming advertising contents offered on any WhatsApp application or WhatsApp Web itself - As there are none. If this condition changes, the service will be shut down.
 
 Every copyrighted name, logo or media used in the code, in other assets of this repository, in promotional media or in the bot itself, is property of it(s) holder(s) and no copyright infringement is intended. 
 
-If you represent WhatsApp Inc., Telegram FZ-LLC or an affiliated company and you have a legal complaint feel free to contact me with the email address massivebox@hi2.in - I will comply with all legitimate requests. Thank you.
+If you represent WhatsApp Inc., Telegram FZ-LLC or an affiliated company and you have a legal complaint feel free to contact me with the email address legal@massivebox.eu.org - I will comply with all legitimate requests. Thank you.
 
-Please read the [Privacy Policy](https://telegra.ph/Privacy-Policy---Whatsapp-Telegram-Linker-09-16-2) and the [Usage Conditions](https://telegra.ph/Usage-Conditions---WhatsApp-Telegram-Linker-09-16) before using the service.
+Please read the [Privacy Policy](https://telegra.ph/Privacy-Policy---Whatsapp-Telegram-Linker-09-16-2) and the [Usage Conditions](https://telegra.ph/Usage-Conditions---WhatsApp-Telegram-Linker-09-16) before using the service.  
+
+All the open source libraries and repositories used are listed in the go.mod file.
 
 # How to run locally
 
-- Download all the dependencies
-
-  ​	github.com/Rhymen/go-whatsapp  
-  ​	github.com/siddontang/go-mysql/client  
-  ​	github.com/go-telegram-bot-api/telegram-bot-api/v5  
-  ​	github.com/gofiber/fiber  
-
 - Put all the files of this repository in a local folder
 
-- Set the correct database credentials and bot token: line 20 in telegram.go, line 16 in bridge.go
+- Set the correct database credentials and bot token: line 19 and 25 in telegram.go
 
-- Start your MySql server and execute the following query inside the database you selected in line 20 of telegram.go:
+- Start your MySql server and execute the following query inside the database you selected in line 25 of telegram.go:
 
   ```CREATE TABLE `wtg` ( `id` INT NOT NULL AUTO_INCREMENT , `username` VARCHAR(64) NOT NULL , `user_id` INT(10) NOT NULL , `autoreply` TEXT NOT NULL , `premium` TINYINT NOT NULL DEFAULT '0' , `session` TEXT NOT NULL , PRIMARY KEY (`id`)) ENGINE = InnoDB; ```
 
@@ -40,7 +35,9 @@ Please read the [Privacy Policy](https://telegra.ph/Privacy-Policy---Whatsapp-Te
 
 - Set the Telegram webhook by opening this link and replacing the url and the bot token with the real one you have set: https://api.telegram.org/botYOURBOTTOKEN/setWebhook?url=https://https://your.domain.com/whateveryouwant
 
-- Execute the command `go run .` to start the bot. Check the terminal to see if errors occur. You might need to use `sudo` to listen on port 12.
+- Build the executable with `go build -race .` - The argument `-race` is used as a temporary workaround for concurrency problems, and it won't be needed in the next versions.
+
+- Run the bot: `sudo ./NAME-OF-THE-FILE-GENERATED-WITH-GO-BUILD`
 
 If you manage to create your instance of Whatsapp-Telegram linker, make sure to DM me or open a issue. I will be happy to link your instance here!
 
