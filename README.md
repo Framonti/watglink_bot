@@ -17,7 +17,7 @@ Every copyrighted name, logo or media used in the code, in other assets of this 
 
 If you represent WhatsApp Inc., Telegram FZ-LLC or an affiliated company and you have a legal complaint feel free to contact me with the email address legal@massivebox.eu.org - I will comply with all legitimate requests. Thank you.
 
-Please read the [Privacy Policy](https://telegra.ph/Privacy-Policy---Whatsapp-Telegram-Linker-09-16-2) and the [Usage Conditions](https://telegra.ph/Usage-Conditions---WhatsApp-Telegram-Linker-09-16) before using the service.  
+Please read the [Privacy Policy](https://github.com/MassiveBox/WaTgLink_Bot/blob/master/docs/PRIVACY.md) and the [Usage Conditions](https://github.com/MassiveBox/WaTgLink_Bot/blob/master/docs/USAGE_CONDITIONS.md) before using the service.  
 
 All the open source libraries and repositories used are listed in the go.mod file.
 
