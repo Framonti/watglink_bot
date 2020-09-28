@@ -2,7 +2,7 @@
 
 If you're reading this page, you're probably trying to figure out why the bot sent you an error saying that your device is disconnected. Here's why this error exists, why it happens, and how to fix it.
 
-Skip to: [How to fix](#how-can-i-fix-this-error?)
+Skip to: [How to fix](#how-can-i-fix-this-error)
 
 ### Why does this error exist?
 
