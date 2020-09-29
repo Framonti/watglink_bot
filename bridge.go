@@ -68,6 +68,7 @@ func (i informations) sendAlertToTelegram(message string) {
 	}
 	msg := tgbotapi.NewMessage(int64(telegramIDi), message)
 	msg.ParseMode = "HTML"
+	msg.DisableWebPagePreview = true
 	bot.Send(msg)
 }
 

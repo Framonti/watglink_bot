@@ -16,14 +16,12 @@ import (
 	_ "github.com/ziutek/mymysql/thrsafe"
 )
 
-var bot, _ = tgbotapi.NewBotAPI("bot token")
+var bot *tgbotapi.BotAPI
 
-func main() {
+func startBot(db *autorc.Conn) {
 
-	app := fiber.New()
-
-	db := autorc.New("tcp", "", "localhost:3306", "username", "password", "dbname")
-	db.Register("set names utf8")
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	go reopenSessions(db)
 
 	var startKeyb = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -34,8 +32,8 @@ func main() {
 			tgbotapi.NewInlineKeyboardButtonURL("🐱 GitHub", "https://github.com/MassiveBox/WaTgLink_Bot"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("🔐 Privacy", "https://telegra.ph/Privacy-Policy---Whatsapp-Telegram-Linker-09-16-2"),
-			tgbotapi.NewInlineKeyboardButtonURL("🌡 Usage Conditions", "https://telegra.ph/Usage-Conditions---WhatsApp-Telegram-Linker-09-16"),
+			tgbotapi.NewInlineKeyboardButtonURL("🔐 Privacy", "https://github.com/MassiveBox/WaTgLink_Bot/blob/master/docs/PRIVACY.md"),
+			tgbotapi.NewInlineKeyboardButtonURL("🌡 Usage Conditions", "https://github.com/MassiveBox/WaTgLink_Bot/blob/master/docs/USAGE_CONDITIONS.md"),
 		),
 	)
 	var backKeyb = tgbotapi.NewInlineKeyboardMarkup(
@@ -58,10 +56,10 @@ func main() {
 
 			if update.Message.Text == "/start" {
 
-				user, _, err := db.Query("SELECT id,username FROM `bots`.`wtg` WHERE user_id = %d;", update.Message.Chat.ID)
+				user, _, err := db.Query("SELECT id,username FROM `wtg` WHERE user_id = %d;", update.Message.Chat.ID)
 				if err != nil {
-					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Internal error establishing a connection to the database. Please try again\nTraceback: "+err.Error()))
-					return nil
+					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Internal error establishing a connection to the database. Please try again"))
+					return err
 				}
 				var (
 					username string
@@ -184,7 +182,7 @@ func main() {
 				if botdata.Ok == 0 || botdata.ID == 0 {
 
 					go bot.Send(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
-					msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "🔰 With the <b>Pro function</b> you will be able to extend the lenght of your sessions and get other features for free.\n\nDuring the beta test phase, the Pro option is not active.\nStar our GitHub repo to keep yourself updated.")
+					msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "🔰 With the <b>Pro function</b> you will be able to extend the length of your sessions and get other features for free.\n\nDuring the beta test phase, the Pro option is not active.\nStar our GitHub repo to keep yourself updated.")
 					msg.ReplyMarkup = &backKeyb
 					msg.ParseMode = "HTML"
 					bot.Send(msg)

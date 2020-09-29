@@ -1,0 +1,10 @@
+[telegram]
+token = "123abc456def789ghi" # The Telegram Bot Token @BotFather gave you
+
+[database]
+server = "localhost:3306" # Format: "IP:PORT" or path to socket
+conn = "tcp" # Connection type
+laddr = "" # Defaults to ""
+username = "username" # Username
+password = "password" # Password
+dbname = "dbname" # Name of the default database

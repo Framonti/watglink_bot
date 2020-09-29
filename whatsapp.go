@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Rhymen/go-whatsapp"
-	"github.com/skip2/go-qrcode"
 	"github.com/ziutek/mymysql/autorc"
 	_ "github.com/ziutek/mymysql/thrsafe"
 )
@@ -30,7 +28,7 @@ func startConnection(userid string, db *autorc.Conn) {
 
 	//create new WhatsApp connection
 	wac, err := whatsapp.NewConn(5 * time.Second)
-	wac.SetClientVersion(2, 2021, 4)
+	wac.SetClientVersion(2, 2039, 9)
 	wac.SetClientName("WaTgLink Bot official", "watglink")
 
 	if err != nil {
@@ -83,7 +81,10 @@ func startConnection(userid string, db *autorc.Conn) {
 					return
 				}
 			}
-			i.sendAlertToTelegram("❌ <b>Your session has expired!</b> Please open another session from the /start menu.\nClick on the \"Pro\" button in the start menu to get life-lasting sessions - For free!")
+			if shutgo == false {
+				i.sendAlertToTelegram("❌ <b>Your session has expired!</b> Please open another session from the /start menu.\nClick on the \"Pro\" button in the start menu to get life-lasting sessions - For free!")
+			}
+			desist[userid] <- true
 		}()
 	}
 
@@ -106,11 +107,12 @@ func startConnection(userid string, db *autorc.Conn) {
 			if shutgo == false {
 				pong, err := wac.AdminTest()
 				if !pong || err != nil {
+					time.Sleep(50 * time.Second)
 					if failedReconns == 0 {
-						i.sendAlertToTelegram("⚠️ <b>Your device is disconnected!</b> Make sure that your phone is turned on, connected to the internet, and with WhatsApp Web active.")
+						i.sendAlertToTelegram("⚠️ <b>Your device is disconnected!</b> Check your phone signal. <a href='https://github.com/MassiveBox/watglink_bot/blob/master/docs/DISCONNECTED.md'>Help</a>")
 					}
 					if failedReconns == 1440 {
-						i.sendAlertToTelegram("❌ <b>Your device has been disconnected for the past 12 hours.</b> Please open a new session.")
+						i.sendAlertToTelegram("❌ <b>Session closed due to excessive inactivity.</b> Please open a new session.")
 						desist[userid] <- true
 					}
 					if failedReconns%120 == 0 && failedReconns != 0 && failedReconns != 1440 {
@@ -122,7 +124,6 @@ func startConnection(userid string, db *autorc.Conn) {
 					if failedReconns > 0 {
 						i.sendAlertToTelegram("✅ <b>Device reconnected</b>.")
 					}
-					time.Sleep(50 * time.Second)
 					failedReconns = 0
 				}
 			} else {
@@ -252,61 +253,4 @@ func (s *waHandler) HandleDocumentMessage(message whatsapp.DocumentMessage) {
 			whatsappToTelegram(cont)
 		}
 	}
-}
-
-func (i informations) login(wac *whatsapp.Conn) error {
-	//load saved session
-	session, err := i.readSession()
-	if err == nil {
-		//restore session
-		session, err = wac.RestoreWithSession(session)
-		if err != nil {
-			return fmt.Errorf("restoring failed: %v", err)
-		}
-	} else {
-		//no saved session -> regular login
-		qr := make(chan string)
-		go func() {
-			qrData := <-qr
-			qrcode.WriteFile(qrData, qrcode.Medium, 256, "qr"+i.UserID+".png")
-			i.sendQr()
-		}()
-		session, err = wac.Login(qr)
-		if err != nil {
-			return fmt.Errorf("error during login: %v", err)
-		}
-	}
-
-	//save session
-	err = i.writeSession(session)
-	if err != nil {
-		return fmt.Errorf("error saving session: %v", err)
-	}
-	return nil
-}
-
-func (i informations) readSession() (whatsapp.Session, error) {
-	r, _, err := i.Db.Query("SELECT session FROM `wtg` WHERE `user_id` = %s;", i.UserID)
-	if err != nil {
-		return whatsapp.Session{}, err
-	}
-	var marshald string
-	if len(r) >= 1 {
-		marshald = r[0].Str(0)
-	}
-	var session whatsapp.Session
-	err = json.Unmarshal([]byte(marshald), &session)
-	if err != nil {
-		return whatsapp.Session{}, err
-	}
-	return session, nil
-}
-
-func (i informations) writeSession(session whatsapp.Session) error {
-	marshald, err := json.Marshal(session)
-	if err != nil {
-		return err
-	}
-	_, _, err = i.Db.Query("UPDATE `wtg` SET `session` = '"+string(marshald)+"' WHERE `wtg`.`user_id` = %s;", i.UserID)
-	return err
 }
