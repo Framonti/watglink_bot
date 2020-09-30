@@ -93,7 +93,6 @@ func startConnection(userid string, db *autorc.Conn) {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		<-c
 		if shutgo == false {
-			i.sendAlertToTelegram("❌ <b>Admin has closed your session.</b> This could be due to a upgrade of the bot, so please open a new session after waiting a couple of minutes.")
 			print("Disconnecting...\n")
 			session, _ := wac.Disconnect()
 			i.writeSession(session)
@@ -103,6 +102,7 @@ func startConnection(userid string, db *autorc.Conn) {
 
 	go func() {
 		var failedReconns int
+		time.Sleep(10 * time.Second)
 		for true {
 			if shutgo == false {
 				pong, err := wac.AdminTest()
@@ -112,7 +112,7 @@ func startConnection(userid string, db *autorc.Conn) {
 						i.sendAlertToTelegram("⚠️ <b>Your device is disconnected!</b> Check your phone signal. <a href='https://github.com/MassiveBox/watglink_bot/blob/master/docs/DISCONNECTED.md'>Help</a>")
 					}
 					if failedReconns == 1440 {
-						i.sendAlertToTelegram("❌ <b>Session closed due to excessive inactivity.</b> Please open a new session.")
+						i.sendAlertToTelegram("❌ <b>Session closed due to inactivity.</b> Please open a new session.")
 						desist[userid] <- true
 					}
 					if failedReconns%120 == 0 && failedReconns != 0 && failedReconns != 1440 {
@@ -132,6 +132,7 @@ func startConnection(userid string, db *autorc.Conn) {
 		}
 	}()
 
+	time.Sleep(1 * time.Second)
 	select {
 	case <-desist[userid]:
 		session, _ := wac.Disconnect()

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -10,6 +11,8 @@ import (
 )
 
 func main() {
+
+	fmt.Println("Bot started!")
 
 	type Config struct {
 		Telegram struct {

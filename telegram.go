@@ -72,7 +72,7 @@ func startBot(db *autorc.Conn) {
 					}
 				}
 				if id == 0 {
-					db.Query("INSERT INTO `wtg` (`id`, `username`, `user_id`, `autoreply`, `premium`, `session`) VALUES (NULL, %s, '%d', '', '0', '');", update.Message.From.UserName, update.Message.Chat.ID)
+					db.Query("INSERT INTO `wtg` (`id`, `username`, `user_id`, `autoreply`, `premium`, `session`) VALUES (NULL, '%s', '%d', '', '0', '');", update.Message.From.UserName, update.Message.Chat.ID)
 				}
 				if username == "ban" {
 					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "You're banned from the bot."))
@@ -158,7 +158,7 @@ func startBot(db *autorc.Conn) {
 
 			if update.CallbackQuery.Data == "/pro" {
 
-				resp, err := http.Get("https://api.botsarchive.com/getBotID.php?username=@WaTgLink_Bot")
+				resp, err := http.Get("https://api.botsarchive.com/getBotID.php?username=@" + bot.Self.UserName)
 				if err != nil {
 					return nil
 				}

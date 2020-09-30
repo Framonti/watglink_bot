@@ -72,6 +72,6 @@ func reopenSessions(db *autorc.Conn) {
 	for _, row := range rows {
 		userID := row.Str(0)
 		informations{userID, 0, db}.sendAlertToTelegram("➰ <b>Bot was restarted</b> - Re-opening your session... Sorry for the inconvenience.")
-		startConnection(userID, db)
+		go startConnection(userID, db)
 	}
 }
