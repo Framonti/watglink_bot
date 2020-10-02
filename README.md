@@ -23,11 +23,24 @@ All the open source libraries and repositories used are listed in the go.mod fil
 
 # How to run locally
 
-- Put all the files of this repository in a local folder
+First, decide if you want to run using the executable or from source.
 
-- Set the correct database credentials and bot token: line 19 and 25 in telegram.go
+|                        | Pre-built  | From Source |
+| ---------------------- | ---------- | ----------- |
+| Complete support       | ✅          | ✅           |
+| Instant deploy         | ✅          | ❌           |
+| Ability to change code | ❌          | ✅           |
+| Stability              | Guaranteed | Might vary  |
 
-- Start your MySql server and execute the following query inside the database you selected in line 25 of telegram.go:
+
+
+### Pre-built executable
+
+- Download the files from the last release [here](https://github.com/MassiveBox/watglink_bot/releases/) and put them in a folder where sudo can write and read files.
+
+- Set the appropriate credentials in the `config.toml` file
+
+- Start your MySQL server and execute the following query inside the database you selected in the `config.toml` file:
 
   ```CREATE TABLE `wtg` ( `id` INT NOT NULL AUTO_INCREMENT , `username` VARCHAR(64) NOT NULL , `user_id` INT(10) NOT NULL , `autoreply` TEXT NOT NULL , `premium` TINYINT NOT NULL DEFAULT '0' , `session` TEXT NOT NULL , PRIMARY KEY (`id`)) ENGINE = InnoDB; ```
 
@@ -35,9 +48,15 @@ All the open source libraries and repositories used are listed in the go.mod fil
 
 - Set the Telegram webhook by opening this link and replacing the url and the bot token with the real one you have set: https://api.telegram.org/botYOURBOTTOKEN/setWebhook?url=https://https://your.domain.com/whateveryouwant
 
-- Build the executable with `go build -race .` - The argument `-race` is used as a temporary workaround for concurrency problems, and it won't be needed in the next versions.
+- Run the bot: `sudo ./start.sh` - Use nohup to keep the bot running even after you log off. If `start.sh` doesn't appear executable, use the command `chmod +x start.sh`
 
-- Run the bot: `sudo ./NAME-OF-THE-FILE-GENERATED-WITH-GO-BUILD`
+### Run from source
+
+- Clone the repository in a local folder into your server
+- (Optional) Remove useless files, including all `.MD`s, `.travis.yml`,  and the pre-built file `watg`.
+- (Optional) Change the code as you please
+- Re-build with `go build -race .` (The `-race` argument won't be necessary from next versions)
+- Follow from step 2 of the explanation for the pre-built package.
 
 If you manage to create your instance of Whatsapp-Telegram linker, make sure to DM me or open a issue. I will be happy to link your instance here!
 
