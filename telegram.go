@@ -17,6 +17,9 @@ import (
 )
 
 var bot *tgbotapi.BotAPI
+var language = "english" /* todo save&load this variable to match the user selected language (e.g. from db)
+ 	right now, it's a testing variable
+	Also, decide which is the best file to declare this var */
 
 func startBot(db *autorc.Conn) {
 
@@ -25,15 +28,18 @@ func startBot(db *autorc.Conn) {
 
 	var startKeyb = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📦 Session", "/session"),
+			tgbotapi.NewInlineKeyboardButtonData(readStringJSON(language, "session"), "/session"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔰 Pro", "/pro"),
-			tgbotapi.NewInlineKeyboardButtonURL("🐱 GitHub", "https://github.com/MassiveBox/WaTgLink_Bot"),
+			tgbotapi.NewInlineKeyboardButtonData(readStringJSON(language, "pro"), "/pro"),
+			tgbotapi.NewInlineKeyboardButtonURL(readStringJSON(language, "github"),
+				readStringJSON("url", "githubUrl")),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("🔐 Privacy", "https://github.com/MassiveBox/WaTgLink_Bot/blob/master/docs/PRIVACY.md"),
-			tgbotapi.NewInlineKeyboardButtonURL("🌡 Usage Conditions", "https://github.com/MassiveBox/WaTgLink_Bot/blob/master/docs/USAGE_CONDITIONS.md"),
+			tgbotapi.NewInlineKeyboardButtonURL(readStringJSON(language, "privacy"),
+				readStringJSON("url", "privacyUrl")),
+			tgbotapi.NewInlineKeyboardButtonURL(readStringJSON(language, "usageCondition"),
+				readStringJSON("url", "usageConditionUrl")),
 		),
 	)
 	var backKeyb = tgbotapi.NewInlineKeyboardMarkup(
